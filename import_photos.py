@@ -21,7 +21,7 @@ import thread,threading
 import time
 
 #Important : Initialisation pour l'utilisation de threads
-gtk.gdk.threads_init() 
+gtk.gdk.threads_init()
 
 debug = False
 
@@ -73,7 +73,7 @@ class DeviceAddedListener:
     t.start()
 
 class exif():
-  """ Objet permettant de gerer les tags exifs 
+  """ Objet permettant de gerer les tags exifs
   d'une image et de comparer deux images sur les criteres exifs:
     * comparaison plus rapide
     * Permet d'identifier deux images identiques meme si elle est tournee.
@@ -144,7 +144,7 @@ class ImportApp():
     self.mainlabel.show()
 
     # Bstart = gtk.Button("Start")
-    # Bstart.connect("clicked", init_thread) 
+    # Bstart.connect("clicked", init_thread)
     # vbox.pack_start(Bstart, False, False, 0)
     # Bstart.show()
 
@@ -168,7 +168,7 @@ class ImportApp():
 
     if total_files == 0:
       bar.set_fraction(1)
-      
+
     for rootpath, dirs, files in os.walk(path_source):
       for name in sorted(files):
         act = False
@@ -280,9 +280,9 @@ class ImportApp():
         return(0)
       print( "%s => %s" % ( count, float(count)/30))
       #On update la progressbar
-      bar.set_fraction(float(count) / 30) 
+      bar.set_fraction(float(count) / 30)
     self.UmountDevice(device_file)
-    
+
 if __name__ == "__main__":
   ImportApp()
   gtk.main()
@@ -290,8 +290,17 @@ if __name__ == "__main__":
   closelog()
 
   # TODO:
-  # Recuperation des videos
+  # Recuperation des videos:
+  #  - parametrage des extensions (avi, 3gp, MTS)
+  #  - classer dans les repertoires par date de creation de fichier.
+  #  - dest paramétrable et différentiable des images
+
   # Proposer une ihm permettant de saisir des commentaires pour l'integrer au nom du repertoire (date - commentaire)
+  # Suppression de la source (avec verif d'intégrité -problème de comparaison apres rotation de l'image cf image magick-).
+  # Message box pour confirmation d'import avant de comment.
+  # Mettre en place le Model Vue Controleur
+  # Résoudre les problèmes de symétrie.
+  # S'inspirer du hotplug udev pour la version daemon : /etc/udev/hdparm.rules
 
   # Refs:
   # http://www.pygtk.org/pygtk2tutorial/sec-ProgressBars.html
