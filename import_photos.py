@@ -62,6 +62,7 @@ class DeviceAddedListener:
     print ("  fstype: %s" % fstype)
     if not mounted:
       print ("  not mounted ... mounting" )
+      # problème de symétrie
       self.app.MountDevice(device_file)
     mount_point = volume.GetProperty("volume.mount_point")
     print ("  mount_point: %s" % mount_point)
@@ -287,6 +288,7 @@ if __name__ == "__main__":
   ImportApp()
   gtk.main()
   print('bye')
+  # problème de symétrie
   closelog()
 
   # TODO:
@@ -305,6 +307,5 @@ if __name__ == "__main__":
   # Refs:
   # http://www.pygtk.org/pygtk2tutorial/sec-ProgressBars.html
   # http://majorsilence.com/pygtk_dbus_interprocess_communication
-
 
 # vim: sw=2:tw=0:ts=2
