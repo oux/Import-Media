@@ -26,7 +26,15 @@ gtk.gdk.threads_init()
 debug = False
 
 class DeviceAddedListener:
+  """ Objet permettant de se mettre en écoute de la détection d'un nouveau
+  volume
+  """
   def __init__(self,app):
+    ## TODO: Originalement dans ImportApp().__init__() vérifier que l'ihm
+    ## répond toujours (probleme de mainloop)
+    from dbus.mainloop.glib import DBusGMainLoop
+    DBusGMainLoop(set_as_default=True)
+
     print('dbus init')
     self.bus = dbus.SystemBus()
     self.hal_manager_obj = self.bus.get_object(
@@ -43,34 +51,18 @@ class DeviceAddedListener:
     device = dbus.Interface(device_obj, "org.freedesktop.Hal.Device")
 
     if device.QueryCapability("volume"):
-      return self.do_something(device)
+      return self.hook_volume(device)
 
-  def do_something(self, volume):
-    mount_point = None
-    device_file = volume.GetProperty("block.device")
-    label = volume.GetProperty("volume.label")
-    fstype = volume.GetProperty("volume.fstype")
-    mounted = volume.GetProperty("volume.is_mounted")
-    try:
-      size = volume.GetProperty("volume.size")
-    except:
-      size = 0
-
+  def hook_volume(self, volume):
     print ("New storage device detected:")
     print ("  device_file: %s" % device_file)
     print ("  label: %s" % label)
     print ("  fstype: %s" % fstype)
-    if not mounted:
-      print ("  not mounted ... mounting" )
-      # problème de symétrie
-      self.app.MountDevice(device_file)
-    mount_point = volume.GetProperty("volume.mount_point")
     print ("  mount_point: %s" % mount_point)
     print ("  size: %s (%.2fGB)" % (size, float(size) / 1024**3))
-    self.app.mainlabel.set_text(device_file)
-    # t = thread.start_new_thread(loop_test, ())
-    t = threading.Thread(target=self.app.ImportPhotos, args=(device_file,mount_point))
-    # t = threading.Thread(target=self.app.loop_test, args=(device_file,mount_point))
+    # TODO:msgbox pour confirmer si il faut faire quelque chose
+    # self.app.mainlabel.set_text(device_file)
+    t = threading.Thread(target=self.app.ImportPhotos, args=(volume))
     t.start()
 
 class exif():
@@ -111,21 +103,16 @@ class exif():
     if ret:
       return True
 
-class ImportApp():
 
-  align = gtk.Alignment()
-  directories = list()
+class ihm_gtk(gtk):
+  # encore nécessaire ? :
+  # align = gtk.Alignment()
+  bars = list()
 
   def __init__(self):
-    from dbus.mainloop.glib import DBusGMainLoop
-    DBusGMainLoop(set_as_default=True)
-
-    self.thumbnails_dir = 'PREVIEW'
-    self.path_dest   = '/home/users/maison/media/images/photos'
-
-    self.root = gtk.Window()
+    # self.root = gtk.Window()
+    self.root = Window()
     self.root.connect("destroy", lambda w: gtk.main_quit())
-    openlog('import_photo.py',LOG_INFO)
     self.root.set_title("Import des photos")
     self.vbox = gtk.VBox(False, 2)
     self.vbox.set_border_width(10)
@@ -150,14 +137,52 @@ class ImportApp():
     # Bstart.show()
 
     self.root.show()
-    self.WaitingForDevice()
 
-  def ImportPhotos(self,device_file=None,mount_point=None):
-    # Create the ProgressBar
+  def main(self):
+    gtk.main()
+
+  def bar():
     bar = gtk.ProgressBar()
-    # self.align.add(bar)
     self.vbox.pack_start(bar, False, False, 1)
     bar.show()
+    self.bars.append(bar)
+    # return bars.index(bar)
+    return bar
+
+class ihm_cli():
+  def __init__(self):
+  class bar():
+    def __init__(self):
+    def set_text():
+    def set_fraction():
+
+class ImportApp():
+  directories = list()
+
+  def __init__(self):
+    self.thumbnails_dir = 'PREVIEW'
+    self.path_dest   = '/home/users/maison/media/images/photos'
+
+    self.WaitingForDevice()
+
+  def ImportPhotos(self,volume=None):
+    mount_point = None
+    device_file = volume.GetProperty("block.device")
+    label = volume.GetProperty("volume.label")
+    fstype = volume.GetProperty("volume.fstype")
+    mounted = volume.GetProperty("volume.is_mounted")
+    try:
+      size = volume.GetProperty("volume.size")
+    except:
+      size = 0
+
+    if not mounted:
+      print ("  not mounted ... mounting" )
+      self.MountDevice(device_file)
+    mount_point = volume.GetProperty("volume.mount_point")
+
+    # Create the ProgressBar
+    bar = ihm.bar()
 
     bar.set_text('Importation des photos...')
     path_source = '%s/dcim' % mount_point
@@ -245,7 +270,9 @@ class ImportApp():
           print("Rien a faire",end="")
         print()
     bar.set_text('Fin de l\'importation...')
-    self.UmountDevice(device_file)
+    if not mounted:
+      print ("Initially not mounted ... umounting" )
+      self.UmountDevice(device_file)
 
   def MountDevice(self,device_file):
     self.mainlabel.set_text('Montage de %s' % device_file)
@@ -257,16 +284,13 @@ class ImportApp():
     ret = subprocess.Popen(["/usr/bin/pumount", device_file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0]
     if ret is not None: print ('demontage device %s %s' % (device_file,ret))
 
-
   def WaitingForDevice(self):
     self.mainlabel.set_text('waiting for device...')
     DeviceAddedListener(self)
 
   def loop_test(self,device_file, mount_point):
     # Create the ProgressBar
-    bar = gtk.ProgressBar()
-    self.vbox.pack_start(bar, False, False, 1)
-    bar.show()
+    bar = ihm.bar()
 
     count=0
     while(1):
@@ -285,9 +309,14 @@ class ImportApp():
     self.UmountDevice(device_file)
 
 if __name__ == "__main__":
+  openlog('import_photos',LOG_INFO)
+  try:
+    ihm = ihm_gtk()
+  except:
+    ihm = ihm_cli()
   ImportApp()
-  gtk.main()
-  print('bye')
+  ihm.main()
+  if debug: print('bye')
   # problème de symétrie
   closelog()
 
