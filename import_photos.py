@@ -26,12 +26,12 @@ gtk.gdk.threads_init()
 debug = False
 
 class DeviceAddedListener:
-  """ Objet permettant de se mettre en écoute de la détection d'un nouveau
+  """ Objet permettant de se mettre en ecoute de la detection d'un nouveau
   volume
   """
   def __init__(self,app):
-    ## TODO: Originalement dans ImportApp().__init__() vérifier que l'ihm
-    ## répond toujours (probleme de mainloop)
+    ## TODO: Originalement dans ImportApp().__init__() verifier que l'ihm
+    ## repond toujours (probleme de mainloop)
     from dbus.mainloop.glib import DBusGMainLoop
     DBusGMainLoop(set_as_default=True)
 
@@ -54,6 +54,14 @@ class DeviceAddedListener:
       return self.hook_volume(device)
 
   def hook_volume(self, volume):
+    device_file = volume.GetProperty("block.device")
+    label = volume.GetProperty("volume.label")
+    fstype = volume.GetProperty("volume.fstype")
+    mount_point = volume.GetProperty("volume.mount_point")
+    try:
+      size = volume.GetProperty("volume.size")
+    except:
+      size = 0
     print ("New storage device detected:")
     print ("  device_file: %s" % device_file)
     print ("  label: %s" % label)
@@ -62,7 +70,7 @@ class DeviceAddedListener:
     print ("  size: %s (%.2fGB)" % (size, float(size) / 1024**3))
     # TODO:msgbox pour confirmer si il faut faire quelque chose
     # self.app.mainlabel.set_text(device_file)
-    t = threading.Thread(target=self.app.ImportPhotos, args=(volume))
+    t = threading.Thread(target=self.app.ImportPhotos, args=(volume,))
     t.start()
 
 class exif():
@@ -104,14 +112,14 @@ class exif():
       return True
 
 
-class ihm_gtk(gtk):
-  # encore nécessaire ? :
+class ihm_gtk():
+  # encore necessaire ? :
   # align = gtk.Alignment()
   bars = list()
 
   def __init__(self):
-    # self.root = gtk.Window()
-    self.root = Window()
+    self.root = gtk.Window()
+    # self.root = Window()
     self.root.connect("destroy", lambda w: gtk.main_quit())
     self.root.set_title("Import des photos")
     self.vbox = gtk.VBox(False, 2)
@@ -141,7 +149,7 @@ class ihm_gtk(gtk):
   def main(self):
     gtk.main()
 
-  def bar():
+  def bar(self):
     bar = gtk.ProgressBar()
     self.vbox.pack_start(bar, False, False, 1)
     bar.show()
@@ -151,17 +159,25 @@ class ihm_gtk(gtk):
 
 class ihm_cli():
   def __init__(self):
+    print ("init_cli")
+
   class bar():
     def __init__(self):
+      print ("init_cli_bar")
+
     def set_text():
+      print ("init_cli_bar_set_text")
+
     def set_fraction():
+      print ("init_cli_bar_set_fraction")
 
 class ImportApp():
   directories = list()
 
   def __init__(self):
     self.thumbnails_dir = 'PREVIEW'
-    self.path_dest   = '/home/users/maison/media/images/photos'
+    self.path_dest   = '/home/sebastien/Documents/dcim/test'
+    # self.path_dest   = '/home/users/maison/media/images/photos'
 
     self.WaitingForDevice()
 
@@ -275,17 +291,17 @@ class ImportApp():
       self.UmountDevice(device_file)
 
   def MountDevice(self,device_file):
-    self.mainlabel.set_text('Montage de %s' % device_file)
+    # self.mainlabel.set_text('Montage de %s' % device_file)
     ret = subprocess.Popen(["/usr/bin/pmount", device_file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0]
     if ret is not None: print ('montage device %s %s' % (device_file,ret))
 
   def UmountDevice(self,device_file):
-    self.mainlabel.set_text('Demontage de %s' % device_file)
+    # self.mainlabel.set_text('Demontage de %s' % device_file)
     ret = subprocess.Popen(["/usr/bin/pumount", device_file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0]
     if ret is not None: print ('demontage device %s %s' % (device_file,ret))
 
   def WaitingForDevice(self):
-    self.mainlabel.set_text('waiting for device...')
+    # self.mainlabel.set_text('waiting for device...')
     DeviceAddedListener(self)
 
   def loop_test(self,device_file, mount_point):
@@ -301,7 +317,7 @@ class ImportApp():
       elif count >= 3 and count <= 30:
         bar.set_text("Traitement en cours de %s ... %d" % (mount_point,count))
       elif count >= 30:
-        bar.set_text("Traitement termine!")
+        bar.set_text("Traitement termine pour %s" % (mount_point))
         return(0)
       print( "%s => %s" % ( count, float(count)/30))
       #On update la progressbar
@@ -317,20 +333,18 @@ if __name__ == "__main__":
   ImportApp()
   ihm.main()
   if debug: print('bye')
-  # problème de symétrie
+  # probleme de symetrie
   closelog()
 
   # TODO:
   # Recuperation des videos:
   #  - parametrage des extensions (avi, 3gp, MTS)
   #  - classer dans les repertoires par date de creation de fichier.
-  #  - dest paramétrable et différentiable des images
+  #  - dest parametrable et differentiable des images
 
   # Proposer une ihm permettant de saisir des commentaires pour l'integrer au nom du repertoire (date - commentaire)
-  # Suppression de la source (avec verif d'intégrité -problème de comparaison apres rotation de l'image cf image magick-).
+  # Suppression de la source (avec verif d'integrite -probleme de comparaison apres rotation de l'image cf image magick-).
   # Message box pour confirmation d'import avant de comment.
-  # Mettre en place le Model Vue Controleur
-  # Résoudre les problèmes de symétrie.
   # S'inspirer du hotplug udev pour la version daemon : /etc/udev/hdparm.rules
 
   # Refs:
