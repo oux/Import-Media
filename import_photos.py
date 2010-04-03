@@ -70,7 +70,7 @@ class DeviceAddedListener:
     print ("  size: %s (%.2fGB)" % (size, float(size) / 1024**3))
     # TODO:msgbox pour confirmer si il faut faire quelque chose
     # self.app.mainlabel.set_text(device_file)
-    t = threading.Thread(target=self.app.ImportPhotos, args=(volume,))
+    t = threading.Thread(target=self.app.ImportMedia, args=(volume,))
     t.start()
 
 class exif():
@@ -175,13 +175,12 @@ class ImportApp():
   directories = list()
 
   def __init__(self):
-    self.thumbnails_dir = 'PREVIEW'
-    self.path_dest   = '/home/sebastien/Documents/dcim/test'
-    # self.path_dest   = '/home/users/maison/media/images/photos'
-
+    # Chargement du fichier de configuration
+    execfile(os.path.expanduser("~/import_photos/config.py"))
+    # attente d'un chargement d'un nouveau volume a explorer
     self.WaitingForDevice()
 
-  def ImportPhotos(self,volume=None):
+  def ImportMedia(self,volume=None):
     mount_point = None
     device_file = volume.GetProperty("block.device")
     label = volume.GetProperty("volume.label")
@@ -197,6 +196,107 @@ class ImportApp():
       self.MountDevice(device_file)
     mount_point = volume.GetProperty("volume.mount_point")
 
+    if self.activeImportPhotos: self.ImportPhotos(mount_point)
+    if self.activeImportVideos: self.ImportVideos(mount_point)
+
+    if not mounted:
+      print ("Initially not mounted ... umounting" )
+      self.UmountDevice(device_file)
+
+  def ImportVideos(self,mount_point=None):
+    # Create the ProgressBar
+    bar = ihm.bar()
+    debug = True
+
+    bar.set_text('Importation des videos de %s...')
+    path_source = '%s/dcim' % mount_point
+    # Recuperation des images
+    compteur_files = 0
+    total_files  = sum(list(len(i[2]) for i in list(os.walk(path_source))))
+    date_pattern = re.compile(r'(\d+):(\d+):(\d+)')
+    print("Nombre de fichier a traiter: %s" % total_files)
+
+    if total_files == 0:
+      bar.set_fraction(1)
+
+    for rootpath, dirs, files in os.walk(path_source):
+      for name in sorted(files):
+        act = False
+        # Affichage du nom de fichier
+        compteur_files += 1
+        if total_files != 0:
+          bar.set_fraction(float(compteur_files) / total_files)
+          bar.set_text('%s : %d/%d' %(os.path.basename(mount_point),compteur_files, total_files))
+        source = "%s/%s" % (rootpath, name)
+        # if debug: print("%s ..." % source)
+        if os.path.splitext(source)[1] in self.videoextensions:
+          print(os.path.basename(name), end=" :")
+          if not act:
+            syslog('%s = Rien a faire' % source)
+            print("Rien a faire",end="")
+          print()
+#        source_exif = exif(source)
+#        try:
+#          rel_directory = date_pattern.sub(r'\1\2\3',source_exif.get('Date and Time').split()[0])
+#        except:
+#          try:
+#            rel_directory = date_pattern.sub(r'\1\2\3',source_exif.get('Date and Time (origi').split()[0])
+#          except:
+#            print()
+#            continue
+#        if rel_directory not in self.directories:
+#          print(rel_directory,end=" ")
+#          self.directories.append(rel_directory)
+#        directory = "%s/%s" % (self.path_dest, rel_directory)
+#        destination_initiale = "%s/%s" % (directory, name)
+#
+#        destination = destination_initiale
+#        compteur = 1
+#        must_copy = True
+#
+#        # Creation du repertoire de destination avec le repertoire des images
+#        # redimensionnees
+#        if not os.path.isdir("%s/%s" % (directory, self.thumbnails_dir)):
+#          os.makedirs("%s/%s" % (directory, self.thumbnails_dir))
+#
+#        # Recherche du nom de fichier de destination:
+#        #  * Pour eviter d'ecraser un fichier different mais de meme nom
+#        #  * Pour ne pas faire la copie si le fichier a deja ete transfere
+#        while os.path.isfile(destination):
+#          if debug: print("Fichier %s existant" % destination)
+#          if not source_exif == exif(destination):
+#            if debug: print("Fichier %s different de la source" % destination)
+#            compteur += 1
+#            destination = re.sub(r'(\.[^\.]*)$',r'_%s\1' % compteur,destination_initiale)
+#          else:
+#            if debug: print("Fichier %s identique a la source" % destination)
+#            must_copy = False
+#            break
+#
+#        thumbnails = "%s/%s/%s" % (os.path.dirname(destination), self.thumbnails_dir, os.path.basename(destination))
+#        # Faire la copie, la rotation et le redimensionnement si necessaire
+#        if must_copy:
+#          act = True
+#          syslog('%s => %s' % (source, destination))
+#          if debug: print(source, "=>", destination)
+#          print("Import", end=" ")
+#          shutil.copy(source, destination)
+#        dest_exif = exif(destination)
+#        if dest_exif.get('Orientation') != "top - left" and dest_exif.get('Orientation') != None:
+#          act = True
+#          syslog('Rotation: %s' % destination)
+#          print("Rotation", end=" ")
+#          subprocess.Popen(["exiftran", "-a", "-i", destination],stderr=subprocess.PIPE,stdout=subprocess.PIPE).communicate()
+#        if not os.path.isfile(thumbnails):
+#          act = True
+#          syslog('Redimensionnement: %s' % thumbnails)
+#          print("Redimensionnement", end=" ")
+#          (stdoutdata, stderrdata) = subprocess.Popen(
+#              ["convert", "-resize", "1024x1024", destination, thumbnails],stdin=subprocess.PIPE,stderr=subprocess.PIPE, stdout=subprocess.PIPE
+#              ).communicate()
+    bar.set_text('Fin de l\'importation des videos de %s...' % os.path.basename(mount_point))
+
+  def ImportPhotos(self,mount_point=None):
     # Create the ProgressBar
     bar = ihm.bar()
 
@@ -219,7 +319,7 @@ class ImportApp():
         compteur_files += 1
         if total_files != 0:
           bar.set_fraction(float(compteur_files) / total_files)
-          bar.set_text('%s : %d/%d' %(device_file,compteur_files, total_files))
+          bar.set_text('%s : %d/%d' %(os.path.basename(mount_point),compteur_files, total_files))
         source = "%s/%s" % (rootpath, name)
         if debug: print("%s ..." % source)
         source_exif = exif(source)
@@ -285,10 +385,7 @@ class ImportApp():
           syslog('%s = Rien a faire' % source)
           print("Rien a faire",end="")
         print()
-    bar.set_text('Fin de l\'importation...')
-    if not mounted:
-      print ("Initially not mounted ... umounting" )
-      self.UmountDevice(device_file)
+    bar.set_text('Fin de l\'importation des photos de %s...' % os.path.basename(mount_point))
 
   def MountDevice(self,device_file):
     # self.mainlabel.set_text('Montage de %s' % device_file)
@@ -303,26 +400,6 @@ class ImportApp():
   def WaitingForDevice(self):
     # self.mainlabel.set_text('waiting for device...')
     DeviceAddedListener(self)
-
-  def loop_test(self,device_file, mount_point):
-    # Create the ProgressBar
-    bar = ihm.bar()
-
-    count=0
-    while(1):
-      count = count + 1
-      time.sleep(1)
-      if count >= 0 and count <= 3:
-        bar.set_text("Initialisation...")
-      elif count >= 3 and count <= 30:
-        bar.set_text("Traitement en cours de %s ... %d" % (mount_point,count))
-      elif count >= 30:
-        bar.set_text("Traitement termine pour %s" % (mount_point))
-        return(0)
-      print( "%s => %s" % ( count, float(count)/30))
-      #On update la progressbar
-      bar.set_fraction(float(count) / 30)
-    self.UmountDevice(device_file)
 
 if __name__ == "__main__":
   openlog('import_photos',LOG_INFO)

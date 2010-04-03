@@ -1,0 +1,7 @@
+self.thumbnails_dir = 'PREVIEW'
+self.path_dest   = '/home/sebastien/Documents/dcim/test'
+# self.path_dest   = '/home/users/maison/media/images/photos'
+self.videosExtensions = ( ".avi", ".3gp")
+self.photosExtensions = ( ".jpg", ".JPG")
+self.activeImportPhotos = False
+self.activeImportVideos = True
