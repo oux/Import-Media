@@ -200,6 +200,9 @@ class ImportApp():
     if self.activeImportVideos: self.ImportVideos(mount_point)
 
     if not mounted:
+      # une petite attente car si il n'y a rien a faire sur la partition elle
+      # est busy au moment de la tentative de demontage.
+      time.sleep(1)
       print ("Initially not mounted ... umounting" )
       self.UmountDevice(device_file)
 
@@ -207,34 +210,44 @@ class ImportApp():
     # Create the ProgressBar
     bar = ihm.bar()
     debug = True
+    videos = list()
 
     bar.set_text('Importation des videos de %s...')
     path_source = '%s/dcim' % mount_point
     # Recuperation des images
     compteur_files = 0
-    total_files  = sum(list(len(i[2]) for i in list(os.walk(path_source))))
     date_pattern = re.compile(r'(\d+):(\d+):(\d+)')
+    # Recherche des fichiers video
+    for rootpath, dirs, files in os.walk(path_source):
+      for name in sorted(files):
+        source = "%s/%s" % (rootpath, name)
+        if os.path.splitext(source)[1] in self.videosExtensions:
+          videos.append(source)
+
+    # Traitement des fichiers videos
+    total_files  = len(videos)
     print("Nombre de fichier a traiter: %s" % total_files)
 
     if total_files == 0:
       bar.set_fraction(1)
 
-    for rootpath, dirs, files in os.walk(path_source):
-      for name in sorted(files):
-        act = False
-        # Affichage du nom de fichier
-        compteur_files += 1
-        if total_files != 0:
-          bar.set_fraction(float(compteur_files) / total_files)
-          bar.set_text('%s : %d/%d' %(os.path.basename(mount_point),compteur_files, total_files))
-        source = "%s/%s" % (rootpath, name)
-        # if debug: print("%s ..." % source)
-        if os.path.splitext(source)[1] in self.videoextensions:
-          print(os.path.basename(name), end=" :")
-          if not act:
-            syslog('%s = Rien a faire' % source)
-            print("Rien a faire",end="")
-          print()
+    for source in videos:
+      act = False
+      compteur_files += 1
+      if total_files != 0:
+        bar.set_fraction(float(compteur_files) / total_files)
+        bar.set_text('%s : %d/%d' %(os.path.basename(mount_point),compteur_files, total_files))
+      source = "%s/%s" % (rootpath, name)
+      # if debug: print("%s ..." % source)
+      print(name, end=" :")
+      print("date de creation: %s" % os.stat(source).st_ctime,end="")
+      time.sleep(1)
+      if not act:
+        syslog('%s = Rien a faire' % source)
+        print("Rien a faire",end="")
+      print()
+
+    bar.set_text('Fin de l\'importation des videos de %s...' % os.path.basename(mount_point))
 #        source_exif = exif(source)
 #        try:
 #          rel_directory = date_pattern.sub(r'\1\2\3',source_exif.get('Date and Time').split()[0])
@@ -247,7 +260,7 @@ class ImportApp():
 #        if rel_directory not in self.directories:
 #          print(rel_directory,end=" ")
 #          self.directories.append(rel_directory)
-#        directory = "%s/%s" % (self.path_dest, rel_directory)
+#        directory = "%s/%s" % (self.photosPathDest, rel_directory)
 #        destination_initiale = "%s/%s" % (directory, name)
 #
 #        destination = destination_initiale
@@ -294,7 +307,6 @@ class ImportApp():
 #          (stdoutdata, stderrdata) = subprocess.Popen(
 #              ["convert", "-resize", "1024x1024", destination, thumbnails],stdin=subprocess.PIPE,stderr=subprocess.PIPE, stdout=subprocess.PIPE
 #              ).communicate()
-    bar.set_text('Fin de l\'importation des videos de %s...' % os.path.basename(mount_point))
 
   def ImportPhotos(self,mount_point=None):
     # Create the ProgressBar
@@ -334,7 +346,7 @@ class ImportApp():
         if rel_directory not in self.directories:
           print(rel_directory,end=" ")
           self.directories.append(rel_directory)
-        directory = "%s/%s" % (self.path_dest, rel_directory)
+        directory = "%s/%s" % (self.photosPathDest, rel_directory)
         destination_initiale = "%s/%s" % (directory, name)
 
         destination = destination_initiale
