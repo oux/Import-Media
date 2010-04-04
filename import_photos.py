@@ -212,7 +212,8 @@ class ImportApp():
     debug = True
     videos = list()
 
-    bar.set_text('Importation des videos de %s...')
+    bar.set_text('Importation des videos de %s...' %
+        os.path.basename(mount_point))
     path_source = '%s/dcim' % mount_point
     # Recuperation des images
     compteur_files = 0
@@ -232,12 +233,12 @@ class ImportApp():
       bar.set_fraction(1)
 
     for source in videos:
+      name = os.path.basename(source)
       act = False
       compteur_files += 1
       if total_files != 0:
         bar.set_fraction(float(compteur_files) / total_files)
         bar.set_text('%s : %d/%d' %(os.path.basename(mount_point),compteur_files, total_files))
-      source = "%s/%s" % (rootpath, name)
       # if debug: print("%s ..." % source)
       print(name, end=" :")
       print("date de creation: %s" % os.stat(source).st_ctime,end="")
@@ -311,93 +312,108 @@ class ImportApp():
   def ImportPhotos(self,mount_point=None):
     # Create the ProgressBar
     bar = ihm.bar()
+    photos = list()
 
-    bar.set_text('Importation des photos...')
-    path_source = '%s/dcim' % mount_point
+    bar.set_text('Importation des photos de %s...' %
+        os.path.basename(mount_point))
+    for source_dir in self.photosSources:
+      path_source = '%s/%s' % (mount_point,source_dir)
+      for rootpath, dirs, files in os.walk(path_source):
+        for name in sorted(files):
+          if os.path.splitext(name)[1] in self.photosExtensions:
+            photos.append("%s/%s" % (rootpath, name))
+
     # Recuperation des images
     compteur_files = 0
-    total_files  = sum(list(len(i[2]) for i in list(os.walk(path_source))))
+    total_files  = len(photos)
     date_pattern = re.compile(r'(\d+):(\d+):(\d+)')
     print("Nombre de fichier a traiter: %s" % total_files)
 
     if total_files == 0:
       bar.set_fraction(1)
 
-    for rootpath, dirs, files in os.walk(path_source):
-      for name in sorted(files):
-        act = False
-        # Affichage du nom de fichier
-        print(name, end=" :")
-        compteur_files += 1
-        if total_files != 0:
-          bar.set_fraction(float(compteur_files) / total_files)
-          bar.set_text('%s : %d/%d' %(os.path.basename(mount_point),compteur_files, total_files))
-        source = "%s/%s" % (rootpath, name)
-        if debug: print("%s ..." % source)
-        source_exif = exif(source)
+    for source in photos:
+      name = os.path.basename(source)
+      act = False
+      # Affichage du nom de fichier
+      print(name, end=" :")
+      compteur_files += 1
+      if total_files != 0:
+        bar.set_fraction(float(compteur_files) / total_files)
+        bar.set_text('%s : %d/%d' %
+            (os.path.basename(mount_point),compteur_files, total_files))
+      if debug: print("%s ..." % source)
+      source_exif = exif(source)
+      try:
+        rel_directory = date_pattern.sub(r'\1\2\3',
+            source_exif.get('Date and Time').split()[0])
+      except:
         try:
-          rel_directory = date_pattern.sub(r'\1\2\3',source_exif.get('Date and Time').split()[0])
+          rel_directory = date_pattern.sub(r'\1\2\3',
+              source_exif.get('Date and Time (origi').split()[0])
         except:
-          try:
-            rel_directory = date_pattern.sub(r'\1\2\3',source_exif.get('Date and Time (origi').split()[0])
-          except:
-            print()
-            continue
-        if rel_directory not in self.directories:
-          print(rel_directory,end=" ")
-          self.directories.append(rel_directory)
-        directory = "%s/%s" % (self.photosPathDest, rel_directory)
-        destination_initiale = "%s/%s" % (directory, name)
+          print()
+          continue
+      if rel_directory not in self.directories:
+        print(rel_directory,end=" ")
+        self.directories.append(rel_directory)
+      directory = "%s/%s" % (self.photosPathDest, rel_directory)
+      destination_initiale = "%s/%s" % (directory, name)
 
-        destination = destination_initiale
-        compteur = 1
-        must_copy = True
+      destination = destination_initiale
+      compteur = 1
+      must_copy = True
 
-        # Creation du repertoire de destination avec le repertoire des images
-        # redimensionnees
-        if not os.path.isdir("%s/%s" % (directory, self.thumbnails_dir)):
-          os.makedirs("%s/%s" % (directory, self.thumbnails_dir))
+      # Creation du repertoire de destination avec le repertoire des images
+      # redimensionnees
+      if not os.path.isdir("%s/%s" % (directory, self.thumbnails_dir)):
+        os.makedirs("%s/%s" % (directory, self.thumbnails_dir))
 
-        # Recherche du nom de fichier de destination:
-        #  * Pour eviter d'ecraser un fichier different mais de meme nom
-        #  * Pour ne pas faire la copie si le fichier a deja ete transfere
-        while os.path.isfile(destination):
-          if debug: print("Fichier %s existant" % destination)
-          if not source_exif == exif(destination):
-            if debug: print("Fichier %s different de la source" % destination)
-            compteur += 1
-            destination = re.sub(r'(\.[^\.]*)$',r'_%s\1' % compteur,destination_initiale)
-          else:
-            if debug: print("Fichier %s identique a la source" % destination)
-            must_copy = False
-            break
+      # Recherche du nom de fichier de destination:
+      #  * Pour eviter d'ecraser un fichier different mais de meme nom
+      #  * Pour ne pas faire la copie si le fichier a deja ete transfere
+      while os.path.isfile(destination):
+        if debug: print("Fichier %s existant" % destination)
+        if not source_exif == exif(destination):
+          if debug: print("Fichier %s different de la source" % destination)
+          compteur += 1
+          destination = re.sub(r'(\.[^\.]*)$',r'_%s\1' %
+              compteur,destination_initiale)
+        else:
+          if debug: print("Fichier %s identique a la source" % destination)
+          must_copy = False
+          break
 
-        thumbnails = "%s/%s/%s" % (os.path.dirname(destination), self.thumbnails_dir, os.path.basename(destination))
-        # Faire la copie, la rotation et le redimensionnement si necessaire
-        if must_copy:
-          act = True
-          syslog('%s => %s' % (source, destination))
-          if debug: print(source, "=>", destination)
-          print("Import", end=" ")
-          shutil.copy(source, destination)
-        dest_exif = exif(destination)
-        if dest_exif.get('Orientation') != "top - left" and dest_exif.get('Orientation') != None:
-          act = True
-          syslog('Rotation: %s' % destination)
-          print("Rotation", end=" ")
-          subprocess.Popen(["exiftran", "-a", "-i", destination],stderr=subprocess.PIPE,stdout=subprocess.PIPE).communicate()
-        if not os.path.isfile(thumbnails):
-          act = True
-          syslog('Redimensionnement: %s' % thumbnails)
-          print("Redimensionnement", end=" ")
-          (stdoutdata, stderrdata) = subprocess.Popen(
-              ["convert", "-resize", "1024x1024", destination, thumbnails],stdin=subprocess.PIPE,stderr=subprocess.PIPE, stdout=subprocess.PIPE
-              ).communicate()
-        if not act:
-          syslog('%s = Rien a faire' % source)
-          print("Rien a faire",end="")
-        print()
-    bar.set_text('Fin de l\'importation des photos de %s...' % os.path.basename(mount_point))
+      thumbnails = "%s/%s/%s" % (os.path.dirname(destination),
+          self.thumbnails_dir, os.path.basename(destination))
+      # Faire la copie, la rotation et le redimensionnement si necessaire
+      if must_copy:
+        act = True
+        syslog('%s => %s' % (source, destination))
+        if debug: print(source, "=>", destination)
+        print("Import", end=" ")
+        shutil.copy(source, destination)
+      dest_exif = exif(destination)
+      if dest_exif.get('Orientation') != "top - left" and dest_exif.get('Orientation') != None:
+        act = True
+        syslog('Rotation: %s' % destination)
+        print("Rotation", end=" ")
+        subprocess.Popen(["exiftran", "-a", "-i", destination],
+            stderr=subprocess.PIPE,stdout=subprocess.PIPE).communicate()
+      if not os.path.isfile(thumbnails):
+        act = True
+        syslog('Redimensionnement: %s' % thumbnails)
+        print("Redimensionnement", end=" ")
+        (stdoutdata, stderrdata) = subprocess.Popen(
+            ["convert", "-resize", "1024x1024", destination, thumbnails],
+            stdin=subprocess.PIPE, stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE).communicate()
+      if not act:
+        syslog('%s = Rien a faire' % source)
+        print("Rien a faire",end="")
+      print()
+    bar.set_text('Fin de l\'importation des photos de %s...' %
+        os.path.basename(mount_point))
 
   def MountDevice(self,device_file):
     # self.mainlabel.set_text('Montage de %s' % device_file)

@@ -3,10 +3,12 @@ self.activeImportPhotos = True
 self.photosExtensions = (".jpg",".JPG",".jpeg",".JPEG")
 self.photosPathDest   = '/home/sebastien/Documents/dcim/test'
 # self.photosPathDest   = '/home/users/maison/media/images/photos'
+self.photosSources = ("dcim","DCIM")
 self.thumbnails_dir = 'PREVIEW'
 
 # Pour activer l'import des videos
 self.activeImportVideos = True
-self.videosExtensions = (".avi",".3gp",".3GP",".AVI",".mpg",".MPG")
+self.videosExtensions = (".avi",".3gp",".3GP",".AVI",".mpg",".MPG",".mts",".MTS")
+self.videosSources = ("PRIVATE")
 self.videosPathDest   = '/home/sebastien/Documents/dcim/test'
 # self.videosPathDest   = '/home/users/maison/media/images/photos'
