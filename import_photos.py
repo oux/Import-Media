@@ -30,11 +30,6 @@ class DeviceAddedListener:
   volume
   """
   def __init__(self,app):
-    ## TODO: Originalement dans ImportApp().__init__() verifier que l'ihm
-    ## repond toujours (probleme de mainloop)
-    from dbus.mainloop.glib import DBusGMainLoop
-    DBusGMainLoop(set_as_default=True)
-
     print('dbus init')
     self.bus = dbus.SystemBus()
     self.hal_manager_obj = self.bus.get_object(
@@ -175,8 +170,19 @@ class ImportApp():
   directories = list()
 
   def __init__(self):
+    from dbus.mainloop.glib import DBusGMainLoop
+    DBusGMainLoop(set_as_default=True)
+
     # Chargement du fichier de configuration
-    execfile(os.path.expanduser("~/import_photos/config.py"))
+    try:
+      execfile(os.path.expanduser("config.py"))
+    except:
+      try:
+        execfile(os.path.expanduser("~/.import_photos_rc.py"))
+      except:
+        print ("Erreur de chargement du fichier de configuration. Creer un
+            fichier ~/.import_photos_rc.py ou config.py")
+    
     # attente d'un chargement d'un nouveau volume a explorer
     self.WaitingForDevice()
 
@@ -422,7 +428,6 @@ if __name__ == "__main__":
   ImportApp()
   ihm.main()
   if debug: print('bye')
-  # probleme de symetrie
   closelog()
 
   # TODO:
