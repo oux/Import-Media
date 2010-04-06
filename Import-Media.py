@@ -180,9 +180,20 @@ class ImportApp():
       try:
         execfile(os.path.expanduser("~/.import_photos_rc.py"))
       except:
-        print ("Erreur de chargement du fichier de configuration. Creer un
-            fichier ~/.import_photos_rc.py ou config.py")
-    
+        print('Erreur de chargement du fichier de configuration.')
+        print('Creer un fichier ~/.import_photos_rc.py ou config.py contenant:')
+        print('        # Pour activer l\'import des photos')
+        print('        self.activeImportPhotos = True')
+        print('        self.photosExtensions = (".jpg",".JPG",".jpeg",".JPEG")')
+        print('        self.photosPathDest   = \'/home/users/maison/media/images/photos\'')
+        print('        self.thumbnails_dir = \'PREVIEW\'')
+        print('')
+        print('        # Pour activer l\'import des videos')
+        print('        self.activeImportVideos = True')
+        print('        self.videosExtensions = (".avi",".3gp",".3GP",".AVI",".mpg",".MPG")')
+        print('        self.videosPathDest   = \'/home/users/maison/media/images/photos\'')
+        exit(1)
+
     # attente d'un chargement d'un nouveau volume a explorer
     self.WaitingForDevice()
 
