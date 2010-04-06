@@ -180,6 +180,10 @@ class ImportApp():
     # attente d'un chargement d'un nouveau volume a explorer
     self.WaitingForDevice()
 
+  def WaitingForDevice(self):
+    # self.mainlabel.set_text('waiting for device...')
+    DeviceAddedListener(self)
+
   def ImportMedia(self,volume=None):
     mount_point = None
     device_file = volume.GetProperty("block.device")
@@ -408,10 +412,6 @@ class ImportApp():
     # self.mainlabel.set_text('Demontage de %s' % device_file)
     ret = subprocess.Popen(["/usr/bin/pumount", device_file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0]
     if ret is not None: print ('demontage device %s %s' % (device_file,ret))
-
-  def WaitingForDevice(self):
-    # self.mainlabel.set_text('waiting for device...')
-    DeviceAddedListener(self)
 
 if __name__ == "__main__":
   openlog('import_photos',LOG_INFO)
