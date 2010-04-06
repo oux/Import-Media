@@ -30,11 +30,6 @@ class DeviceAddedListener:
   volume
   """
   def __init__(self,app):
-    ## TODO: Originalement dans ImportApp().__init__() verifier que l'ihm
-    ## repond toujours (probleme de mainloop)
-    from dbus.mainloop.glib import DBusGMainLoop
-    DBusGMainLoop(set_as_default=True)
-
     print('dbus init')
     self.bus = dbus.SystemBus()
     self.hal_manager_obj = self.bus.get_object(
@@ -175,10 +170,36 @@ class ImportApp():
   directories = list()
 
   def __init__(self):
+    from dbus.mainloop.glib import DBusGMainLoop
+    DBusGMainLoop(set_as_default=True)
+
     # Chargement du fichier de configuration
-    execfile(os.path.expanduser("~/import_photos/config.py"))
+    try:
+      execfile(os.path.expanduser("config.py"))
+    except:
+      try:
+        execfile(os.path.expanduser("~/.import_photos_rc.py"))
+      except:
+        print('Erreur de chargement du fichier de configuration.')
+        print('Creer un fichier ~/.import_photos_rc.py ou config.py contenant:')
+        print('        # Pour activer l\'import des photos')
+        print('        self.activeImportPhotos = True')
+        print('        self.photosExtensions = (".jpg",".JPG",".jpeg",".JPEG")')
+        print('        self.photosPathDest   = \'/home/users/maison/media/images/photos\'')
+        print('        self.thumbnails_dir = \'PREVIEW\'')
+        print('')
+        print('        # Pour activer l\'import des videos')
+        print('        self.activeImportVideos = True')
+        print('        self.videosExtensions = (".avi",".3gp",".3GP",".AVI",".mpg",".MPG")')
+        print('        self.videosPathDest   = \'/home/users/maison/media/images/photos\'')
+        exit(1)
+
     # attente d'un chargement d'un nouveau volume a explorer
     self.WaitingForDevice()
+
+  def WaitingForDevice(self):
+    # self.mainlabel.set_text('waiting for device...')
+    DeviceAddedListener(self)
 
   def ImportMedia(self,volume=None):
     mount_point = None
@@ -425,10 +446,6 @@ class ImportApp():
     ret = subprocess.Popen(["/usr/bin/pumount", device_file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT).communicate()[0]
     if ret is not None: print ('demontage device %s %s' % (device_file,ret))
 
-  def WaitingForDevice(self):
-    # self.mainlabel.set_text('waiting for device...')
-    DeviceAddedListener(self)
-
 if __name__ == "__main__":
   openlog('import_photos',LOG_INFO)
   try:
@@ -438,7 +455,6 @@ if __name__ == "__main__":
   ImportApp()
   ihm.main()
   if debug: print('bye')
-  # probleme de symetrie
   closelog()
 
   # TODO:
