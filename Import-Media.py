@@ -230,23 +230,22 @@ class ImportApp():
   def ImportVideos(self,mount_point=None):
     # Create the ProgressBar
     bar = ihm.bar()
-    debug = True
     videos = list()
 
     bar.set_text('Importation des videos de %s...' %
         os.path.basename(mount_point))
-    path_source = '%s/dcim' % mount_point
-    # Recuperation des images
-    compteur_files = 0
-    date_pattern = re.compile(r'(\d+):(\d+):(\d+)')
     # Recherche des fichiers video
-    for rootpath, dirs, files in os.walk(path_source):
-      for name in sorted(files):
-        source = "%s/%s" % (rootpath, name)
-        if os.path.splitext(source)[1] in self.videosExtensions:
-          videos.append(source)
+    for source_dir in self.videosSources:
+      path_source = '%s/%s' % (mount_point,source_dir)
+      for rootpath, dirs, files in os.walk(path_source):
+        for name in sorted(files):
+          source = "%s/%s" % (rootpath, name)
+          if os.path.splitext(source)[1] in self.videosExtensions:
+            videos.append(source)
 
     # Traitement des fichiers videos
+    compteur_files = 0
+    date_pattern = re.compile(r'(\d+):(\d+):(\d+)')
     total_files  = len(videos)
     print("Nombre de fichier a traiter: %s" % total_files)
 
@@ -256,66 +255,52 @@ class ImportApp():
     for source in videos:
       name = os.path.basename(source)
       act = False
+      print(name, end=" :")
       compteur_files += 1
       if total_files != 0:
         bar.set_fraction(float(compteur_files) / total_files)
-        bar.set_text('%s : %d/%d' %(os.path.basename(mount_point),compteur_files, total_files))
-      # if debug: print("%s ..." % source)
-      print(name, end=" :")
-      print("date de creation: %s" % os.stat(source).st_ctime,end="")
-      time.sleep(1)
-      if not act:
-        syslog('%s = Rien a faire' % source)
-        print("Rien a faire",end="")
-      print()
+        bar.set_text('%s : %d/%d' %
+            (os.path.basename(mount_point),compteur_files, total_files))
+      if debug: print("%s ..." % source)
+      rel_directory = time.strftime('%Y%m%d',
+        time.localtime(os.path.getctime( source)))
+      if rel_directory not in self.directories:
+        self.directories.append(rel_directory)
+      directory = "%s/%s" % (self.videosPathDest, rel_directory)
+      destination_initiale = "%s/%s" % (directory, name)
 
-    bar.set_text('Fin de l\'importation des videos de %s...' % os.path.basename(mount_point))
-#        source_exif = exif(source)
-#        try:
-#          rel_directory = date_pattern.sub(r'\1\2\3',source_exif.get('Date and Time').split()[0])
-#        except:
-#          try:
-#            rel_directory = date_pattern.sub(r'\1\2\3',source_exif.get('Date and Time (origi').split()[0])
-#          except:
-#            print()
-#            continue
-#        if rel_directory not in self.directories:
-#          print(rel_directory,end=" ")
-#          self.directories.append(rel_directory)
-#        directory = "%s/%s" % (self.photosPathDest, rel_directory)
-#        destination_initiale = "%s/%s" % (directory, name)
-#
-#        destination = destination_initiale
-#        compteur = 1
-#        must_copy = True
-#
-#        # Creation du repertoire de destination avec le repertoire des images
-#        # redimensionnees
-#        if not os.path.isdir("%s/%s" % (directory, self.thumbnails_dir)):
-#          os.makedirs("%s/%s" % (directory, self.thumbnails_dir))
-#
-#        # Recherche du nom de fichier de destination:
-#        #  * Pour eviter d'ecraser un fichier different mais de meme nom
-#        #  * Pour ne pas faire la copie si le fichier a deja ete transfere
-#        while os.path.isfile(destination):
-#          if debug: print("Fichier %s existant" % destination)
-#          if not source_exif == exif(destination):
-#            if debug: print("Fichier %s different de la source" % destination)
-#            compteur += 1
-#            destination = re.sub(r'(\.[^\.]*)$',r'_%s\1' % compteur,destination_initiale)
-#          else:
-#            if debug: print("Fichier %s identique a la source" % destination)
-#            must_copy = False
-#            break
-#
+      destination = destination_initiale
+      compteur = 1
+      must_copy = True
+
+      # Creation du repertoire de destination avec le repertoire des images
+      # redimensionnees
+      if not os.path.isdir("%s/%s" % (directory, self.thumbnails_dir)):
+        os.makedirs("%s/%s" % (directory, self.thumbnails_dir))
+
+      # Recherche du nom de fichier de destination:
+      #  * Pour eviter d'ecraser un fichier different mais de meme nom
+      #  * Pour ne pas faire la copie si le fichier a deja ete transfere
+      while os.path.isfile(destination):
+        if debug: print("Fichier %s existant" % destination)
+        if not os.path.getsize(source) == os.path.getsize(destination):
+          if debug: print("Fichier %s different de la source" % destination)
+          compteur += 1
+          destination = re.sub(r'(\.[^\.]*)$',r'_%s\1' %
+              compteur,destination_initiale)
+        else:
+          if debug: print("Fichier %s identique a la source" % destination)
+          must_copy = False
+          break
+
 #        thumbnails = "%s/%s/%s" % (os.path.dirname(destination), self.thumbnails_dir, os.path.basename(destination))
 #        # Faire la copie, la rotation et le redimensionnement si necessaire
-#        if must_copy:
-#          act = True
-#          syslog('%s => %s' % (source, destination))
-#          if debug: print(source, "=>", destination)
-#          print("Import", end=" ")
-#          shutil.copy(source, destination)
+      if must_copy:
+        act = True
+        syslog('%s => %s' % (source, destination))
+        if debug: print(source, "=>", destination)
+        print("Import", end=" ")
+        shutil.copy(source, destination)
 #        dest_exif = exif(destination)
 #        if dest_exif.get('Orientation') != "top - left" and dest_exif.get('Orientation') != None:
 #          act = True
@@ -329,6 +314,13 @@ class ImportApp():
 #          (stdoutdata, stderrdata) = subprocess.Popen(
 #              ["convert", "-resize", "1024x1024", destination, thumbnails],stdin=subprocess.PIPE,stderr=subprocess.PIPE, stdout=subprocess.PIPE
 #              ).communicate()
+
+      if not act:
+        syslog('%s = Rien a faire' % source)
+        print("Rien a faire",end="")
+      print()
+
+    bar.set_text('Fin de l\'importation des videos de %s...' % os.path.basename(mount_point))
 
   def ImportPhotos(self,mount_point=None):
     # Create the ProgressBar
@@ -376,7 +368,6 @@ class ImportApp():
           print()
           continue
       if rel_directory not in self.directories:
-        print(rel_directory,end=" ")
         self.directories.append(rel_directory)
       directory = "%s/%s" % (self.photosPathDest, rel_directory)
       destination_initiale = "%s/%s" % (directory, name)
@@ -421,12 +412,12 @@ class ImportApp():
         print("Rotation", end=" ")
         subprocess.Popen(["exiftran", "-a", "-i", destination],
             stderr=subprocess.PIPE,stdout=subprocess.PIPE).communicate()
-      if not os.path.isfile(thumbnails):
+      if self.thumbnails and not os.path.isfile(thumbnails):
         act = True
         syslog('Redimensionnement: %s' % thumbnails)
         print("Redimensionnement", end=" ")
         (stdoutdata, stderrdata) = subprocess.Popen(
-            ["convert", "-resize", "1024x1024", destination, thumbnails],
+            ["convert", "-resize", "%sx%s" % (thumbnails_size,thumbnails_size), destination, thumbnails],
             stdin=subprocess.PIPE, stderr=subprocess.PIPE,
             stdout=subprocess.PIPE).communicate()
       if not act:
