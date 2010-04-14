@@ -53,6 +53,7 @@ class DeviceAddedListener:
     label = volume.GetProperty("volume.label")
     fstype = volume.GetProperty("volume.fstype")
     mount_point = volume.GetProperty("volume.mount_point")
+    mounted = volume.GetProperty("volume.is_mounted")
     try:
       size = volume.GetProperty("volume.size")
     except:
@@ -65,7 +66,7 @@ class DeviceAddedListener:
     print ("  size: %s (%.2fGB)" % (size, float(size) / 1024**3))
     # TODO:msgbox pour confirmer si il faut faire quelque chose
     # self.app.mainlabel.set_text(device_file)
-    t = threading.Thread(target=self.app.ImportMedia, args=(volume,))
+    t = threading.Thread(target=self.app.ImportMedia, args=(device_file,mount_point, mounted))
     t.start()
 
 class exif():
@@ -201,21 +202,11 @@ class ImportApp():
     # self.mainlabel.set_text('waiting for device...')
     DeviceAddedListener(self)
 
-  def ImportMedia(self,volume=None):
-    mount_point = None
-    device_file = volume.GetProperty("block.device")
-    label = volume.GetProperty("volume.label")
-    fstype = volume.GetProperty("volume.fstype")
-    mounted = volume.GetProperty("volume.is_mounted")
-    try:
-      size = volume.GetProperty("volume.size")
-    except:
-      size = 0
-
+  def ImportMedia(self,device_file, mount_point, mounted):
     if not mounted:
       print ("  not mounted ... mounting" )
       self.MountDevice(device_file)
-    mount_point = volume.GetProperty("volume.mount_point")
+    mount_point = "/media/%s" % os.path.basename(device_file)
 
     if self.activeImportPhotos: self.ImportPhotos(mount_point)
     if self.activeImportVideos: self.ImportVideos(mount_point)
